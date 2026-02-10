@@ -68,29 +68,39 @@ class SummaryResponse(BaseModel):
 # Authentication
 def verify_telegram_webapp_data(init_data: str) -> Optional[int]:
     """Verify Telegram WebApp initData and return user telegram_id"""
+    print(f"DEBUG: Verifying init_data: {init_data[:50]}...")
     try:
         parsed_data = dict(parse_qsl(init_data))
         received_hash = parsed_data.pop('hash', None)
         
         if not received_hash:
+            print("DEBUG: No hash found in init_data")
             return None
         
         # Create data check string
         data_check_arr = [f"{k}={v}" for k, v in sorted(parsed_data.items())]
         data_check_string = '\n'.join(data_check_arr)
         
+        if not BOT_TOKEN:
+            print("DEBUG: BOT_TOKEN is missing!")
+            return None
+
         # Calculate hash
         secret_key = hmac.new("WebAppData".encode(), BOT_TOKEN.encode(), hashlib.sha256).digest()
         calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
         
-        if calculated_hash == received_hash:
-            # Extract user data
-            import json
-            user_data = json.loads(parsed_data.get('user', '{}'))
-            return user_data.get('id')
+        if calculated_hash != received_hash:
+            print(f"DEBUG: Hash mismatch! Calc: {calculated_hash}, Recv: {received_hash}")
+            return None
+
+        # Extract user data
+        import json
+        user_data = json.loads(parsed_data.get('user', '{}'))
+        print(f"DEBUG: Auth success for user: {user_data.get('id')}")
+        return user_data.get('id')
         
-        return None
-    except:
+    except Exception as e:
+        print(f"DEBUG: Auth Exception: {str(e)}")
         return None
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)) -> User:
