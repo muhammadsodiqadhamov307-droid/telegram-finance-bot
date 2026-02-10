@@ -1,5 +1,5 @@
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters, ConversationHandler
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from models import User, Transaction, Category, TransactionType
@@ -10,6 +10,10 @@ import re
 
 # Get bot token from environment
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+WEBAPP_URL = os.getenv("FRONTEND_URL", "https://your-domain.com")
+
+# Conversation states
+WAITING_AMOUNT, WAITING_DESCRIPTION = range(2)
 
 def get_user_balance(db: Session, telegram_id: int) -> float:
     """Calculate user's current balance"""
@@ -64,16 +68,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db.close()
     
     # Send welcome message with keyboard
-    keyboard = [
-        [KeyboardButton(BTN_INCOME), KeyboardButton(BTN_EXPENSE)],
-        [KeyboardButton(BTN_BALANCE), KeyboardButton(BTN_TODAY)],
-        [KeyboardButton(BTN_DASHBOARD)]
-    ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    
     await update.message.reply_text(
         WELCOME_MESSAGE,
-        reply_markup=reply_markup
+        reply_markup=get_main_keyboard()
     )
 
 async def income_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -395,10 +392,169 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     db.close()
 
+async def handle_button_income(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle 💰 Daromad button click"""
+    context.user_data['transaction_type'] = 'income'
+    await update.message.reply_text(
+        "💰 Daromad qo'shish\n\nSummani kiriting (masalan: 500000):",
+        reply_markup=ReplyKeyboardMarkup([[KeyboardButton("🚫 Bekor qilish")]], resize_keyboard=True)
+    )
+    return WAITING_AMOUNT
+
+async def handle_button_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle 💸 Xarajat button click"""
+    context.user_data['transaction_type'] = 'expense'
+    await update.message.reply_text(
+        "💸 Xarajat qo'shish\n\nSummani kiriting (masalan: 50000):",
+        reply_markup=ReplyKeyboardMarkup([[KeyboardButton("🚫 Bekor qilish")]], resize_keyboard=True)
+    )
+    return WAITING_AMOUNT
+
+async def handle_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle amount input"""
+    text = update.message.text
+    
+    if text == "🚫 Bekor qilish":
+        await update.message.reply_text(
+            "❌ Bekor qilindi",
+            reply_markup=get_main_keyboard()
+        )
+        return ConversationHandler.END
+    
+    try:
+        amount = float(text.replace(",", "").replace(" ", ""))
+        if amount <= 0:
+            await update.message.reply_text("❌ Summa musbat bo'lishi kerak. Qaytadan kiriting:")
+            return WAITING_AMOUNT
+        
+        context.user_data['amount'] = amount
+        await update.message.reply_text(
+            f"✅ Summa: {amount:,.0f} UZS\n\nEndi tavsif kiriting (masalan: Oziq-ovqat, Maosh, etc.):"
+        )
+        return WAITING_DESCRIPTION
+    except:
+        await update.message.reply_text("❌ Noto'g'ri summa! Iltimos, faqat raqam kiriting:")
+        return WAITING_AMOUNT
+
+async def handle_description(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle description input and save transaction"""
+    description = update.message.text
+    
+    if description == "🚫 Bekor qilish":
+        await update.message.reply_text(
+            "❌ Bekor qilindi",
+            reply_markup=get_main_keyboard()
+        )
+        return ConversationHandler.END
+    
+    db = SessionLocal()
+    user_id = update.effective_user.id
+    amount = context.user_data['amount']
+    transaction_type = context.user_data['transaction_type']
+    
+    # Get default category
+    category = db.query(Category).filter(
+        Category.is_default == True,
+        Category.type == (TransactionType.INCOME if transaction_type == 'income' else TransactionType.EXPENSE),
+        Category.name == "Boshqa"
+    ).first()
+    
+    # Create transaction
+    transaction = Transaction(
+        user_id=user_id,
+        type=TransactionType.INCOME if transaction_type == 'income' else TransactionType.EXPENSE,
+        amount=amount,
+        category_id=category.id if category else None,
+        description=description,
+        transaction_date=datetime.now()
+    )
+    
+    db.add(transaction)
+    db.commit()
+    
+    # Get updated balance
+    balance = get_user_balance(db, user_id)
+    
+    # Send confirmation
+    if transaction_type == 'income':
+        message = INCOME_ADDED.format(
+            amount=amount,
+            category=category.name if category else "Boshqa",
+            description=description,
+            date=datetime.now().strftime("%d.%m.%Y %H:%M"),
+            balance=balance
+        )
+    else:
+        message = EXPENSE_ADDED.format(
+            amount=amount,
+            category=category.name if category else "Boshqa",
+            description=description,
+            date=datetime.now().strftime("%d.%m.%Y %H:%M"),
+            balance=balance
+        )
+    
+    await update.message.reply_text(message, reply_markup=get_main_keyboard())
+    db.close()
+    
+    return ConversationHandler.END
+
+async def cancel_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Cancel the conversation"""
+    await update.message.reply_text(
+        "❌ Bekor qilindi",
+        reply_markup=get_main_keyboard()
+    )
+    return ConversationHandler.END
+
+async def handle_button_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle 💵 Balans button click"""
+    await balance_command(update, context)
+
+async def handle_button_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle 📅 Bugun button click"""
+    await today_command(update, context)
+
+async def handle_button_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle 📊 Dashboard button click"""
+    keyboard = [[InlineKeyboardButton("📊 Dashboard ochish", web_app=WebAppInfo(url=WEBAPP_URL))]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(
+        "📱 Web Dashboard\n\nQuyidagi tugmani bosing:",
+        reply_markup=reply_markup
+    )
+
+def get_main_keyboard():
+    """Get main keyboard with buttons"""
+    keyboard = [
+        [KeyboardButton("💰 Daromad"), KeyboardButton("💸 Xarajat")],
+        [KeyboardButton("💵 Balans"), KeyboardButton("📅 Bugun")],
+        [KeyboardButton("📊 Dashboard")]
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
 # Initialize bot application
 def create_bot():
     """Create and configure bot application"""
     application = Application.builder().token(BOT_TOKEN).build()
+    
+    # Conversation handler for adding transactions
+    conv_handler = ConversationHandler(
+        entry_points=[
+            MessageHandler(filters.Regex("^💰 Daromad$"), handle_button_income),
+            MessageHandler(filters.Regex("^💸 Xarajat$"), handle_button_expense),
+        ],
+        states={
+            WAITING_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_amount)],
+            WAITING_DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_description)],
+        },
+        fallbacks=[
+            MessageHandler(filters.Regex("^🚫 Bekor qilish$"), cancel_conversation),
+            CommandHandler("start", start_command)
+        ],
+    )
+    
+    # Add conversation handler
+    application.add_handler(conv_handler)
     
     # Add command handlers
     application.add_handler(CommandHandler("start", start_command))
@@ -410,6 +566,11 @@ def create_bot():
     application.add_handler(CommandHandler("oy", month_command))
     application.add_handler(CommandHandler("yordam", help_command))
     application.add_handler(CommandHandler("ochir", delete_command))
+    
+    # Add button handlers
+    application.add_handler(MessageHandler(filters.Regex("^💵 Balans$"), handle_button_balance))
+    application.add_handler(MessageHandler(filters.Regex("^📅 Bugun$"), handle_button_today))
+    application.add_handler(MessageHandler(filters.Regex("^📊 Dashboard$"), handle_button_dashboard))
     
     # Add callback query handler
     application.add_handler(CallbackQueryHandler(button_callback))
