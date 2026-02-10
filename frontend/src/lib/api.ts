@@ -2,9 +2,32 @@ import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+// Debug logging system
+export const debugLogs: string[] = [];
+const listeners: (() => void)[] = [];
+
+export const addLog = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    debugLogs.unshift(`[${timestamp}] ${message}`);
+    if (debugLogs.length > 50) debugLogs.pop();
+    listeners.forEach(l => l());
+};
+
+export const subscribeLogs = (listener: () => void) => {
+    listeners.push(listener);
+    return () => {
+        const index = listeners.indexOf(listener);
+        if (index > -1) listeners.splice(index, 1);
+    };
+};
+
+addLog(`API URL: ${API_BASE_URL}`);
+
 // Get Telegram WebApp initData for authentication
 function getAuthToken(): string {
-    return window.Telegram?.WebApp?.initData || '';
+    const token = window.Telegram?.WebApp?.initData || '';
+    if (!token) addLog('WARNING: No initData found!');
+    return token;
 };
 
 // Create axios instance
@@ -18,10 +41,28 @@ const api = axios.create({
 // Add auth header to every request
 api.interceptors.request.use((config) => {
     const token = getAuthToken();
+    addLog(`Request: ${config.method?.toUpperCase()} ${config.url}`);
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+    } else {
+        addLog('Request sending without Token');
     }
     return config;
+}, (error) => {
+    addLog(`Req Error: ${error.message}`);
+    return Promise.reject(error);
+});
+
+api.interceptors.response.use((response) => {
+    addLog(`Response: ${response.status} ${response.config.url}`);
+    return response;
+}, (error) => {
+    if (error.response) {
+        addLog(`Error ${error.response.status}: ${JSON.stringify(error.response.data)}`);
+    } else {
+        addLog(`Network Error: ${error.message}`);
+    }
+    return Promise.reject(error);
 });
 
 // API methods
