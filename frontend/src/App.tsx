@@ -79,7 +79,7 @@ function App() {
         addLog(`UA: ${navigator.userAgent}`);
 
         // Global error handler
-        window.onerror = (msg, url, line) => {
+        window.onerror = (msg, _url, line) => {
             addLog(`JS Error: ${msg} (${line})`);
             return false;
         };
