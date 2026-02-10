@@ -40,25 +40,25 @@ function BalanceChart() {
 
     let runningBalance = 0;
     for (let i = days - 1; i >= 0; i--) {
-        const date = subDays(new Date(), i);
-        const dateStr = format(date, 'yyyy-MM-dd');
+        const day = subDays(new Date(), i);
+        const dateStr = format(day, 'yyyy-MM-dd'); // Keep dateStr for consistency if needed elsewhere, though not used in filter anymore
 
         // Calculate transactions for this day
-        const dayTransactions = transactions.filter(t =>
-            format(new Date(t.transaction_date), 'yyyy-MM-dd') === dateStr
+        const dayTransactions = transactions.filter((t: Transaction) =>
+            isSameDay(parseISO(t.transaction_date), day)
         );
 
-        const dayIncome = dayTransactions
-            .filter(t => t.type === 'income')
-            .reduce((sum, t) => sum + t.amount, 0);
+        const income = dayTransactions
+            .filter((t: Transaction) => t.type === 'income')
+            .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
 
-        const dayExpense = dayTransactions
-            .filter(t => t.type === 'expense')
-            .reduce((sum, t) => sum + t.amount, 0);
+        const expense = dayTransactions
+            .filter((t: Transaction) => t.type === 'expense')
+            .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
 
-        runningBalance += (dayIncome - dayExpense);
+        runningBalance += (income - expense);
 
-        chartData.labels.push(format(date, 'dd.MM'));
+        chartData.labels.push(format(day, 'dd.MM'));
         chartData.balances.push(runningBalance);
     }
 

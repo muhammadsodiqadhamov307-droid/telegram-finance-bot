@@ -3,8 +3,8 @@ import axios from 'axios';
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // Get Telegram WebApp initData for authentication
-const getAuthToken = () => {
-    return window.Telegram.WebApp.initData;
+function getInitData(): string {
+    return window.Telegram?.WebApp?.initData || '';
 };
 
 // Create axios instance

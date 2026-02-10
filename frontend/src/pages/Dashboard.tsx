@@ -37,7 +37,7 @@ function Dashboard() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['transactions'] });
             queryClient.invalidateQueries({ queryKey: ['summary'] });
-            window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+            window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
         },
     });
 
@@ -48,7 +48,7 @@ function Dashboard() {
             queryClient.invalidateQueries({ queryKey: ['transactions'] });
             queryClient.invalidateQueries({ queryKey: ['summary'] });
             setShowAddModal(false);
-            window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+            window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
         },
     });
 
@@ -138,7 +138,7 @@ function Dashboard() {
                     onClick={() => {
                         setTransactionType('income');
                         setShowAddModal(true);
-                        window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+                        window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
                     }}
                     className="btn-income flex items-center justify-center gap-2"
                 >
@@ -149,7 +149,7 @@ function Dashboard() {
                     onClick={() => {
                         setTransactionType('expense');
                         setShowAddModal(true);
-                        window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+                        window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
                     }}
                     className="btn-expense flex items-center justify-center gap-2"
                 >
@@ -316,8 +316,8 @@ function Dashboard() {
                                     <select name="category_id" className="input-field">
                                         <option value="">Tanlang</option>
                                         {categories
-                                            .filter(c => c.type === transactionType)
-                                            .map(cat => (
+                                            .filter((c: Category) => c.type === transactionType)
+                                            .map((cat: Category) => (
                                                 <option key={cat.id} value={cat.id}>
                                                     {cat.icon} {cat.name}
                                                 </option>

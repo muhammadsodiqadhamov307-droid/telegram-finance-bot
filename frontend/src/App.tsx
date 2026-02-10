@@ -16,16 +16,10 @@ function App() {
     const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
     useEffect(() => {
-        // Get theme from Telegram WebApp
-        const tgTheme = window.Telegram.WebApp.colorScheme;
+        const tgTheme = window.Telegram?.WebApp?.colorScheme || 'light';
         setTheme(tgTheme);
-
-        // Apply theme class to document
-        if (tgTheme === 'dark') {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
+        window.Telegram?.WebApp?.ready();
+        window.Telegram?.WebApp?.expand();
     }, []);
 
     return (

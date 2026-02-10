@@ -4,9 +4,9 @@ import App from './App'
 import './index.css'
 
 // Telegram WebApp initialization
-const tg = window.Telegram.WebApp;
-tg.ready();
-tg.expand();
+const tg = window.Telegram?.WebApp;
+tg?.ready();
+tg?.expand();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
