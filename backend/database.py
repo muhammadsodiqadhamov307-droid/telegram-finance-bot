@@ -10,6 +10,7 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./finance.db")
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+print(f"🔌 Connecting to database at: {DATABASE_URL}")
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db() -> Generator[Session, None, None]:
