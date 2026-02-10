@@ -12,7 +12,8 @@ import {
     Filler
 } from 'chart.js';
 import { apiClient } from '../lib/api';
-import { format, subDays } from 'date-fns';
+import { format, subDays, isSameDay, parseISO } from 'date-fns';
+import type { Transaction } from '../types';
 
 ChartJS.register(
     CategoryScale,
@@ -41,7 +42,6 @@ function BalanceChart() {
     let runningBalance = 0;
     for (let i = days - 1; i >= 0; i--) {
         const day = subDays(new Date(), i);
-        const dateStr = format(day, 'yyyy-MM-dd'); // Keep dateStr for consistency if needed elsewhere, though not used in filter anymore
 
         // Calculate transactions for this day
         const dayTransactions = transactions.filter((t: Transaction) =>

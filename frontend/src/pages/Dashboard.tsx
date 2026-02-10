@@ -4,7 +4,7 @@ import { apiClient } from '../lib/api';
 import { TrendingUp, TrendingDown, Wallet, Plus, Calendar, Search, Trash2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
-import type { Transaction, Summary } from '../types';
+import type { Transaction, Summary, Category } from '../types';
 import BalanceChart from '../components/BalanceChart';
 import CategoryChart from '../components/CategoryChart';
 
