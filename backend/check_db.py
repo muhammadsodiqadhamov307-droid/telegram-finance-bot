@@ -21,13 +21,14 @@ def inspect_db(path):
         with engine.connect() as conn:
             # 1. Check Users
             print("\n--- 👤 USERS ---")
-            result = conn.execute(text("SELECT id, telegram_id, first_name, username FROM users"))
+            # User table uses telegram_id as PK, there is no 'id' column
+            result = conn.execute(text("SELECT telegram_id, first_name, username FROM users"))
             users = result.fetchall()
             if not users:
                 print("⚠️  No users found! Did you run /start in the bot?")
             else:
                 for u in users:
-                    print(f"ID: {u.id} | Telegram ID: {u.telegram_id} | Name: {u.first_name} (@{u.username})")
+                    print(f"Telegram ID: {u.telegram_id} | Name: {u.first_name} (@{u.username})")
 
             # 2. Check Transactions (Last 5)
             print("\n--- 💰 RECENT TRANSACTIONS ---")
