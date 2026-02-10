@@ -1,27 +1,13 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL.includes('http')
+    ? import.meta.env.VITE_API_URL
+    : 'https://finance-bot-fast.duckdns.org/api';
 
-// Debug logging system
-export const debugLogs: string[] = [];
-const listeners: (() => void)[] = [];
+// FORCE OVERRIDE for debugging if env var is wrong (e.g. IP address)
+const FINAL_URL = API_BASE_URL.includes('35.170') ? 'https://finance-bot-fast.duckdns.org/api' : API_BASE_URL;
 
-export const addLog = (message: string) => {
-    const timestamp = new Date().toLocaleTimeString();
-    debugLogs.unshift(`[${timestamp}] ${message}`);
-    if (debugLogs.length > 50) debugLogs.pop();
-    listeners.forEach(l => l());
-};
-
-export const subscribeLogs = (listener: () => void) => {
-    listeners.push(listener);
-    return () => {
-        const index = listeners.indexOf(listener);
-        if (index > -1) listeners.splice(index, 1);
-    };
-};
-
-addLog(`API URL: ${API_BASE_URL}`);
+addLog(`Configured API URL: ${FINAL_URL}`);
 
 // Get Telegram WebApp initData for authentication
 function getAuthToken(): string {
@@ -32,7 +18,7 @@ function getAuthToken(): string {
 
 // Create axios instance
 const api = axios.create({
-    baseURL: API_BASE_URL,
+    baseURL: FINAL_URL,
     headers: {
         'Content-Type': 'application/json',
     },
