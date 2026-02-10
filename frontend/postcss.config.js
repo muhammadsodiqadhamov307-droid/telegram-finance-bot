@@ -1,7 +1,6 @@
-module.exports = {
-    content: [],
-    theme: {
-        extend: {},
+export default {
+    plugins: {
+        tailwindcss: {},
+        autoprefixer: {},
     },
-    plugins: [],
 }
