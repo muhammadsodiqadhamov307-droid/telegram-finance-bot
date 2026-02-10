@@ -396,7 +396,7 @@ async def handle_button_income(update: Update, context: ContextTypes.DEFAULT_TYP
     """Handle 💰 Daromad button click"""
     context.user_data['transaction_type'] = 'income'
     await update.message.reply_text(
-        "💰 Daromad qo'shish\n\nSummani kiriting (masalan: 500000):",
+        "💰 Daromad qo'shish\n\nSumma va tavsifni kiriting:\nMasalan: 100000 Maosh\n\nYoki faqat summa: 100000",
         reply_markup=ReplyKeyboardMarkup([[KeyboardButton("🚫 Bekor qilish")]], resize_keyboard=True)
     )
     return WAITING_AMOUNT
@@ -405,14 +405,14 @@ async def handle_button_expense(update: Update, context: ContextTypes.DEFAULT_TY
     """Handle 💸 Xarajat button click"""
     context.user_data['transaction_type'] = 'expense'
     await update.message.reply_text(
-        "💸 Xarajat qo'shish\n\nSummani kiriting (masalan: 50000):",
+        "💸 Xarajat qo'shish\n\nSumma va tavsifni kiriting:\nMasalan: 5000 nonga\n\nYoki faqat summa: 5000",
         reply_markup=ReplyKeyboardMarkup([[KeyboardButton("🚫 Bekor qilish")]], resize_keyboard=True)
     )
     return WAITING_AMOUNT
 
 async def handle_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle amount input"""
-    text = update.message.text
+    """Handle amount and description input (single line)"""
+    text = update.message.text.strip()
     
     if text == "🚫 Bekor qilish":
         await update.message.reply_text(
@@ -421,81 +421,76 @@ async def handle_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return ConversationHandler.END
     
+    # Parse input - try to extract amount and description
+    parts = text.split(None, 1)  # Split by whitespace, max 2 parts
+    
     try:
-        amount = float(text.replace(",", "").replace(" ", ""))
+        # First part should be the amount
+        amount = float(parts[0].replace(",", "").replace(" ", ""))
         if amount <= 0:
             await update.message.reply_text("❌ Summa musbat bo'lishi kerak. Qaytadan kiriting:")
             return WAITING_AMOUNT
         
-        context.user_data['amount'] = amount
-        await update.message.reply_text(
-            f"✅ Summa: {amount:,.0f} UZS\n\nEndi tavsif kiriting (masalan: Oziq-ovqat, Maosh, etc.):"
+        # Second part is description (if provided)
+        description = parts[1] if len(parts) > 1 else "Boshqa"
+        
+        # Save transaction immediately
+        db = SessionLocal()
+        user_id = update.effective_user.id
+        transaction_type = context.user_data['transaction_type']
+        
+        # Get default category
+        category = db.query(Category).filter(
+            Category.is_default == True,
+            Category.type == (TransactionType.INCOME if transaction_type == 'income' else TransactionType.EXPENSE),
+            Category.name == "Boshqa"
+        ).first()
+        
+        # Create transaction
+        transaction = Transaction(
+            user_id=user_id,
+            type=TransactionType.INCOME if transaction_type == 'income' else TransactionType.EXPENSE,
+            amount=amount,
+            category_id=category.id if category else None,
+            description=description,
+            transaction_date=datetime.now()
         )
-        return WAITING_DESCRIPTION
-    except:
-        await update.message.reply_text("❌ Noto'g'ri summa! Iltimos, faqat raqam kiriting:")
+        
+        db.add(transaction)
+        db.commit()
+        
+        # Get updated balance
+        balance = get_user_balance(db, user_id)
+        
+        # Send confirmation
+        if transaction_type == 'income':
+            message = INCOME_ADDED.format(
+                amount=amount,
+                category=category.name if category else "Boshqa",
+                description=description,
+                date=datetime.now().strftime("%d.%m.%Y %H:%M"),
+                balance=balance
+            )
+        else:
+            message = EXPENSE_ADDED.format(
+                amount=amount,
+                category=category.name if category else "Boshqa",
+                description=description,
+                date=datetime.now().strftime("%d.%m.%Y %H:%M"),
+                balance=balance
+            )
+        
+        await update.message.reply_text(message, reply_markup=get_main_keyboard())
+        db.close()
+        
+        return ConversationHandler.END
+        
+    except (ValueError, IndexError):
+        await update.message.reply_text("❌ Noto'g'ri format!\n\nTo'g'ri format:\n• 5000 nonga\n• 100000 Maosh\n\nQaytadan kiriting:")
         return WAITING_AMOUNT
 
 async def handle_description(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle description input and save transaction"""
-    description = update.message.text
-    
-    if description == "🚫 Bekor qilish":
-        await update.message.reply_text(
-            "❌ Bekor qilindi",
-            reply_markup=get_main_keyboard()
-        )
-        return ConversationHandler.END
-    
-    db = SessionLocal()
-    user_id = update.effective_user.id
-    amount = context.user_data['amount']
-    transaction_type = context.user_data['transaction_type']
-    
-    # Get default category
-    category = db.query(Category).filter(
-        Category.is_default == True,
-        Category.type == (TransactionType.INCOME if transaction_type == 'income' else TransactionType.EXPENSE),
-        Category.name == "Boshqa"
-    ).first()
-    
-    # Create transaction
-    transaction = Transaction(
-        user_id=user_id,
-        type=TransactionType.INCOME if transaction_type == 'income' else TransactionType.EXPENSE,
-        amount=amount,
-        category_id=category.id if category else None,
-        description=description,
-        transaction_date=datetime.now()
-    )
-    
-    db.add(transaction)
-    db.commit()
-    
-    # Get updated balance
-    balance = get_user_balance(db, user_id)
-    
-    # Send confirmation
-    if transaction_type == 'income':
-        message = INCOME_ADDED.format(
-            amount=amount,
-            category=category.name if category else "Boshqa",
-            description=description,
-            date=datetime.now().strftime("%d.%m.%Y %H:%M"),
-            balance=balance
-        )
-    else:
-        message = EXPENSE_ADDED.format(
-            amount=amount,
-            category=category.name if category else "Boshqa",
-            description=description,
-            date=datetime.now().strftime("%d.%m.%Y %H:%M"),
-            balance=balance
-        )
-    
-    await update.message.reply_text(message, reply_markup=get_main_keyboard())
-    db.close()
-    
+    """This function is no longer used but kept for compatibility"""
     return ConversationHandler.END
 
 async def cancel_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE):
