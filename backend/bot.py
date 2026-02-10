@@ -7,6 +7,10 @@ from database import get_db, SessionLocal
 from messages import *
 import os
 import re
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Get bot token from environment
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
