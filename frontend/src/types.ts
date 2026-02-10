@@ -37,12 +37,6 @@ interface TelegramWebApp {
     };
 }
 
-interface Window {
-    Telegram: {
-        WebApp: TelegramWebApp;
-    };
-}
-
 // Transaction types
 export interface Transaction {
     id: number;
