@@ -9,7 +9,7 @@ import os
 import re
 
 # Get bot token from environment
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
 WEBAPP_URL = os.getenv("FRONTEND_URL", "https://your-domain.com")
 
 # Conversation states
