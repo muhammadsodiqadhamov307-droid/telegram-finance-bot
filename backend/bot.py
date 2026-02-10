@@ -522,8 +522,7 @@ def get_main_keyboard():
     """Get main keyboard with buttons"""
     keyboard = [
         [KeyboardButton("💰 Daromad"), KeyboardButton("💸 Xarajat")],
-        [KeyboardButton("💵 Balans"), KeyboardButton("📅 Bugun")],
-        [KeyboardButton("📊 Dashboard")]
+        [KeyboardButton("💵 Balans"), KeyboardButton("📅 Bugun")]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
